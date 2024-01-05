@@ -14,8 +14,9 @@ namespace RemoteSensingApp.Gateway
             ipEndPoint = new(IPAddress.Parse(ipAddress), port);
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-            // Clear log file
-            File.WriteAllText("server-received-log.txt", string.Empty);
+            // Clear log files
+            File.WriteAllText("server-received-temp-log.txt", string.Empty);
+            File.WriteAllText("server-received-hum-log.txt", string.Empty);
         }
 
         public void Start()
