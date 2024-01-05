@@ -1,133 +1,157 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Net.WebSockets;
 using System.Text;
 
 namespace RemoteSensingApp.Gateway
 {
     internal class ListenPorts
     {
-        private readonly Socket[] sockets;
-        private readonly IPEndPoint[] ipEndPoints;
+        private readonly Socket tcpSocket;
+        private readonly Socket udpSocket;
+        private readonly IPEndPoint temperatureEndPoint;
+        private readonly IPEndPoint humidityIpEndPoint;
 
-        internal ListenPorts(IPEndPoint[] ipEndPoints)
+        internal ListenPorts(IPEndPoint temperatureEndPoint, IPEndPoint humidityIpEndPoint)
         {
-            this.ipEndPoints = ipEndPoints;
-            sockets = new Socket[ipEndPoints.Length];
+            // Declare sensor endpoints
+            this.temperatureEndPoint = temperatureEndPoint;
+            this.humidityIpEndPoint = humidityIpEndPoint;
 
-            sockets[0] = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            sockets[1] = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            // Initialise different sockets for TCP and UDP protocols
+            tcpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            // Clear log files
+            File.WriteAllText("gateway-received-log.txt", string.Empty);
+            File.WriteAllText("gateway-sent-log.txt", string.Empty);
         }
 
         public void Start()
         {
-            for (int i = 0; i < ipEndPoints.Length; i++)
-            {
-                sockets[i].Bind(ipEndPoints[i]);
+            // Connect sockets with endpoints
+            tcpSocket.Bind(temperatureEndPoint);
+            udpSocket.Bind(humidityIpEndPoint);
 
-                Console.WriteLine("Gateway: The gateway is listening at port: " + ipEndPoints[i].Port
-                    + " over " + sockets[i].ProtocolType.ToString().ToUpper());
+            // Create TCP & UDP connections with multi-thread implementation
+            Thread threadTcp = new(ThreadListenTcp!);
+            Thread threadUdp = new(ThreadListenUdp!);
 
-                Thread thread = new(ThreadListen!);
-                thread.Start(sockets[i]);
-            }
+            // Run related threads to listen sockets
+            threadTcp.Start(tcpSocket);
+            threadUdp.Start(udpSocket);
         }
 
-        private async void ThreadListen(object objs)
+        private async void ThreadListenTcp(object objs)
         {
             try
             {
                 Socket listener = (Socket)objs;
                 var buffer = new byte[1_024];
 
-                if (listener.ProtocolType == ProtocolType.Tcp)
+                while (true)
                 {
+                    // Start listening and accept connection
+                    listener.Listen(1);
+                    var handler = listener.Accept();
+                    int checkTempSensor = 0;
+
+                    // Receive new messages when the connection is accepted
                     while (true)
                     {
-                        Console.WriteLine("Gateway: Listening for temperature sensor TCP connection.");
-                        listener.Listen(100);
+                        DateTime now = DateTime.Now;
 
-                        var handler = listener.Accept();
-                        Console.WriteLine("Gateway: Connection accepted for temperature sensor from "
-                            + handler.RemoteEndPoint);
-
-                        int checkTempSensor = 0;
-                        while (true)
+                        if (handler.Available > 0)
                         {
-                            DateTime dateTimeNow = DateTime.Now;
-                            if (handler.Available > 0)
-                            {
-                                // Receive message over TCP
-                                int received = handler.Receive(buffer, SocketFlags.None);
-                                var response = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
+                            // Receive message
+                            int received = await handler.ReceiveAsync(buffer, SocketFlags.None);
+                            var response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                                // Print received data
-                                if (!string.IsNullOrEmpty(response) && received > 0)
-                                {
-                                    Console.WriteLine("Gateway: " + response);
-                                    checkTempSensor = 0;
-
-                                    // Send data to the server
-                                    SendReceivedData(response);
-                                }
-                            }
-
-                            // Print sensor alarm
-                            if (checkTempSensor == 3)
-                            {
-                                Console.WriteLine("Gateway: TEMP SENSOR OFF Date: " + dateTimeNow);
-                                break;
-                            }
-
-                            // Wait for a second
-                            Thread.Sleep(1000);
-
-                            // Increment temperature sensor counter
-                            checkTempSensor++;
-                        }
-                    }
-                }
-                else if (listener.ProtocolType == ProtocolType.Udp)
-                {
-                    int checkHumSensor = 0;
-                    while (true)
-                    {
-                        DateTime dateTimeNow = DateTime.Now;
-                        if (listener.Available > 0)
-                        {
-                            // Receive message over UDP
-                            int received = await listener.ReceiveAsync(buffer, SocketFlags.None);
-                            var response = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
-
-                            // Humidity ALIVE message arrived
-                            if (response.Contains("ALIVE") && received > 0)
-                                checkHumSensor = 0;
-
-                            // Print data
+                            // Print received data
                             if (!string.IsNullOrEmpty(response) && received > 0)
                             {
-                                Console.WriteLine("Gateway: " + response);
+                                checkTempSensor = 0;
+                                Console.WriteLine($"{now} | Received: {response}");
+
+                                // Log the received data
+                                await File.AppendAllTextAsync("gateway-received-log.txt", response + Environment.NewLine);
 
                                 // Send data to the server
-                                SendReceivedData(response);
+                                // SendReceivedData(response);
                             }
                         }
 
                         // Print sensor alarm
-                        if (checkHumSensor == 7)
-                            Console.WriteLine("Gateway: HUMIDITY SENSOR OFF Date: " + dateTimeNow);
+                        if (checkTempSensor >= 3)
+                        {
+                            Console.WriteLine($"{now} | TEMP SENSOR OFF");
+                            break; // Leave while loop to reconnect
+                        }
 
                         // Wait for a second
-                        Thread.Sleep(1000);
+                        Thread.Sleep(500);
 
-                        // Increment humidity sensor counter
-                        checkHumSensor++;
+                        // Increment temperature sensor counter
+                        checkTempSensor++;
                     }
                 }
             }
             catch (SocketException ex)
             {
-                Console.WriteLine(ex.Message);
+                DateTime now = DateTime.Now;
+                Console.WriteLine($"{ex.Message} | {now}");
+            }
+        }
+
+        private async void ThreadListenUdp(object objs)
+        {
+            try
+            {
+                Socket listener = (Socket)objs;
+                var buffer = new byte[1_024];
+                int checkHumSensor = 0;
+
+                while (true)
+                {
+                    DateTime now = DateTime.Now;
+
+                    if (listener.Available > 0)
+                    {
+                        // Receive message
+                        int received = await listener.ReceiveAsync(buffer, SocketFlags.None);
+                        var response = Encoding.UTF8.GetString(buffer, 0, received);
+
+                        // Humidity ALIVE message arrived
+                        if (response.Contains("ALIVE") && received > 0)
+                            checkHumSensor = 0;
+
+                        // Print data
+                        if (!string.IsNullOrEmpty(response) && received > 0)
+                        {
+                            Console.WriteLine($"{now} | Received: {response}");
+
+                            // Log the received data
+                            File.AppendAllText("gateway-received-log.txt", response + Environment.NewLine);
+
+                            // Send data to the server
+                            // SendReceivedData(response);
+                        }
+                    }
+
+                    // Print sensor alarm
+                    if (checkHumSensor == 7)
+                        Console.WriteLine($"{now} | HUMIDITY SENSOR OFF");
+
+                    // Wait for a second
+                    Thread.Sleep(1000);
+
+                    // Increment humidity sensor counter
+                    checkHumSensor++;
+                }
+            }
+            catch (SocketException ex)
+            {
+                DateTime now = DateTime.Now;
+                Console.WriteLine($"{ex.Message} | {now}");
             }
         }
 
@@ -135,7 +159,7 @@ namespace RemoteSensingApp.Gateway
         {
             try
             {
-                // Connect to the server web socket
+                // Connect to the server
                 IPEndPoint ipEndPoint = new(IPAddress.Parse("127.0.0.1"), 8083);
                 using Socket client = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 client.Connect(ipEndPoint);
@@ -143,20 +167,24 @@ namespace RemoteSensingApp.Gateway
                 // Prepare message
                 var message = data;
                 var messageBytes = Encoding.UTF8.GetBytes(message);
-                DateTime now = DateTime.Now;
 
                 // Send message
                 client.Send(messageBytes, SocketFlags.None);
 
                 // Print sent data
-                Console.WriteLine("Gateway Sent Data: " + message);
+                DateTime now = DateTime.Now;
+                Console.WriteLine($"{now} | Sent: {message}");
+
+                // Log sent data
+                File.AppendAllText("gateway-sent-log.txt", message + Environment.NewLine);
 
                 // Wait for a second
                 Thread.Sleep(1000);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                DateTime now = DateTime.Now;
+                Console.WriteLine($"{ex.Message} | {now}");
             }
         }
     }
