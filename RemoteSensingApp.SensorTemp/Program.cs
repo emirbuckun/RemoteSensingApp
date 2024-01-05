@@ -12,18 +12,26 @@ try
     // Connect to the gateway
     await client.ConnectAsync(ipEndPoint);
 
+    // Clear log file
+    await File.WriteAllTextAsync("temp-sent-log.txt", string.Empty);
+
     // Send message
     while (true)
     {
         // Create temperature data btw 20-30
         Random random = new();
-        string temperature = random.Next(20, 30).ToString();
-        string now = DateTime.Now.ToString();
+        int temperature = random.Next(20, 30);
+        DateTime now = DateTime.Now;
 
-        // Send temperature data
+        // Prepare message
         var message = $"TEMP | {temperature} | {now}";
         var messageBytes = Encoding.UTF8.GetBytes(message);
+
+        // Send message
         _ = await client.SendAsync(messageBytes, SocketFlags.None);
+
+        // Log the sent data
+        await File.AppendAllTextAsync("temp-sent-log.txt", message + Environment.NewLine);
 
         // Print sent data
         Console.WriteLine($"Sent: {message}");
@@ -35,5 +43,5 @@ try
 catch (SocketException ex)
 {
     Console.WriteLine("\n\tThere is a problem with the gateway connection." +
-                    $"\n\tPlease try again. Error Details: {ex.Message}.\n");
+                    $"\n\tPlease try again. Error details: {ex.Message}.\n");
 }

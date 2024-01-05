@@ -3,46 +3,72 @@ using System.Net.Sockets;
 using System.Text;
 
 // Set UDP connection
+Console.Title = "Humidity Sensor";
 IPEndPoint ipEndPoint = new(IPAddress.Parse("127.0.0.1"), 8082);
 using Socket client = new(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-await client.ConnectAsync(ipEndPoint);
 
-// Send message
-int aliveCounter = 0;
-while (true)
+try
 {
-    DateTime dateTime = DateTime.Now;
+    // Connect to the gateway
+    await client.ConnectAsync(ipEndPoint);
 
-    // Send alive message
-    if (aliveCounter >= 3)
+    // Clear log file
+    await File.WriteAllTextAsync("hum-sent-log.txt", string.Empty);
+
+    // Send message
+    int aliveCounter = 0;
+    while (true)
     {
-        var aliveMsg = "Humidity Sensor: ALIVE Date: " + dateTime.ToString();
-        var aliveMsgBytes = Encoding.UTF8.GetBytes(aliveMsg);
-        _ = await client.SendAsync(aliveMsgBytes, SocketFlags.None);
+        DateTime now = DateTime.Now;
 
-        // Print sent data
-        Console.WriteLine("Humidity Sensor Sent Data: " + aliveMsg);
-        aliveCounter = 0;
+        // Send alive message
+        if (aliveCounter >= 3)
+        {
+            // Prepare alive message
+            var aliveMsg = $"HUM | ALIVE | " + now.ToString();
+            var aliveMsgBytes = Encoding.UTF8.GetBytes(aliveMsg);
+            _ = await client.SendAsync(aliveMsgBytes, SocketFlags.None);
+
+            // Print sent data
+            Console.WriteLine($"Sent: {aliveMsg}");
+
+            // Log the sent data
+            await File.AppendAllTextAsync("hum-sent-log.txt", aliveMsg + Environment.NewLine);
+
+            // Reset alive counter
+            aliveCounter = 0;
+        }
+
+        // Create humidity data btw 40-90
+        Random random = new();
+        int humidity = random.Next(40, 90);
+
+        // Send humidity data
+        if (humidity > 80)
+        {
+            // Prepare message
+            var message = $"HUM | {humidity} | {now}";
+            var messageBytes = Encoding.UTF8.GetBytes(message);
+
+            // Send message
+            _ = await client.SendAsync(messageBytes, SocketFlags.None);
+
+            // Print sent data
+            Console.WriteLine($"Sent: {message}");
+
+            // Log the sent data
+            await File.AppendAllTextAsync("hum-sent-log.txt", message + Environment.NewLine);
+        }
+
+        // Wait for a second
+        Thread.Sleep(1000);
+
+        // Increment alive message counter
+        aliveCounter++;
     }
-
-    // Create humidity data btw 40-90
-    Random random = new();
-    int humidity = random.Next(40, 90);
-
-    // Send humidity data
-    if (humidity > 80)
-    {
-        var message = "Humidity Sensor: " + humidity.ToString() + " Date: " + dateTime.ToString();
-        var messageBytes = Encoding.UTF8.GetBytes(message);
-        _ = await client.SendAsync(messageBytes, SocketFlags.None);
-
-        // Print sent data
-        Console.WriteLine("Humidity Sensor Sent Data: " + message);
-    }
-
-    // Wait for a second
-    Thread.Sleep(1000);
-
-    // Increment alive message counter
-    aliveCounter++;
+}
+catch (SocketException ex)
+{
+    Console.WriteLine("\n\tThere is a problem with the gateway connection." +
+                    $"\n\tPlease try again. Error details: {ex.Message}.\n");
 }
