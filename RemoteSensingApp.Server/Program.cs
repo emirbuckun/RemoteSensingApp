@@ -1,3 +1,5 @@
+using System.Net.WebSockets;
+using System.Text;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +21,33 @@ builder.Services.AddSwaggerGen(swagger =>
 });
 
 var app = builder.Build();
+
+// Web socket connection
+app.UseWebSockets();
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/ws")
+    {
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            while (webSocket.State == WebSocketState.Open)
+            {
+                var buffer = new byte[1_024];
+                var received = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
+                if (received.Count > 0)
+                {
+                    var response = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
+                    Console.WriteLine(response);
+                    break;
+                }
+            }
+        }
+        else context.Response.StatusCode = StatusCodes.Status400BadRequest;
+    }
+    else await next(context);
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
