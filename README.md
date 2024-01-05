@@ -26,3 +26,11 @@ dotnet run --project RemoteSensingApp.SensorTemp
 ```
 dotnet run --project RemoteSensingApp.SensorHum
 ```
+
+## Example HTTP Requests
+```
+http://localhost:8080/temperature
+```
+```
+http://localhost:8080/humidity
+```
