@@ -10,23 +10,19 @@ namespace RemoteSensingApp.HttpServer
         public HttpServer(string ipAddress, int port)
         {
             httpListener = new();
-            httpListener.Prefixes.Add("http://" + ipAddress + ":" + port + "/");
-            Console.WriteLine($"Server: HTTP server started on port {port}.");
+            httpListener.Prefixes.Add($"http://{ipAddress}:{port}/");
+            httpListener.Prefixes.Add($"http://localhost:{port}/");
+            Console.WriteLine($"HTTP server started at port {port}.");
         }
 
         public void Start()
         {
-            Console.WriteLine("Server: HTTP server listening for requests...");
-
             httpListener.Start();
 
             while (true)
             {
                 HttpListenerContext ctx = httpListener.GetContext();
-                HttpListenerRequest req = ctx.Request;
-
                 string? path = ctx.Request.Url?.LocalPath;
-                Console.WriteLine("Path: " + path);
 
                 if (path == "/temperature")
                     SendTemperatureData(ctx);
@@ -37,6 +33,38 @@ namespace RemoteSensingApp.HttpServer
             }
         }
 
+        private void SendTemperatureData(HttpListenerContext ctx)
+        {
+            using HttpListenerResponse resp = ctx.Response;
+            resp.Headers.Set("Content-Type", "text/plain");
+
+            using Stream ros = resp.OutputStream;
+
+            ctx.Response.StatusCode = (int)HttpStatusCode.OK;
+            string readText = File.ReadAllText("server-received-temp-log.txt");
+
+            byte[] ebuf = Encoding.UTF8.GetBytes(readText);
+            resp.ContentLength64 = ebuf.Length;
+
+            ros.Write(ebuf, 0, ebuf.Length);
+        }
+
+        private void SendHumidityData(HttpListenerContext ctx)
+        {
+            using HttpListenerResponse resp = ctx.Response;
+            resp.Headers.Set("Content-Type", "text/plain");
+
+            using Stream ros = resp.OutputStream;
+
+            ctx.Response.StatusCode = (int)HttpStatusCode.OK;
+            string readText = File.ReadAllText("server-received-hum-log.txt");
+
+            byte[] ebuf = Encoding.UTF8.GetBytes(readText);
+            resp.ContentLength64 = ebuf.Length;
+
+            ros.Write(ebuf, 0, ebuf.Length);
+        }
+
         private void NotFound(HttpListenerContext ctx)
         {
             using HttpListenerResponse resp = ctx.Response;
@@ -45,36 +73,12 @@ namespace RemoteSensingApp.HttpServer
             using Stream ros = resp.OutputStream;
 
             ctx.Response.StatusCode = (int)HttpStatusCode.NotFound;
-            string err = "404 - not found";
+            string err = "404 - Not Found";
 
             byte[] ebuf = Encoding.UTF8.GetBytes(err);
             resp.ContentLength64 = ebuf.Length;
 
             ros.Write(ebuf, 0, ebuf.Length);
-        }
-
-        private void SendTemperatureData(HttpListenerContext ctx)
-        {
-            using HttpListenerResponse resp = ctx.Response;
-            resp.Headers.Set("Content-Type", "image/png");
-
-            byte[] buf = File.ReadAllBytes("public/img/sid.png");
-            resp.ContentLength64 = buf.Length;
-
-            using Stream ros = resp.OutputStream;
-            ros.Write(buf, 0, buf.Length);
-        }
-
-        private void SendHumidityData(HttpListenerContext ctx)
-        {
-            using HttpListenerResponse resp = ctx.Response;
-            resp.Headers.Set("Content-Type", "image/png");
-
-            byte[] buf = File.ReadAllBytes("public/img/sid.png");
-            resp.ContentLength64 = buf.Length;
-
-            using Stream ros = resp.OutputStream;
-            ros.Write(buf, 0, buf.Length);
         }
     }
 }

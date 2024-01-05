@@ -11,15 +11,18 @@ namespace RemoteSensingApp.Gateway
 
         internal ListenGateway(string ipAddress, int port)
         {
-            this.ipEndPoint = new(IPAddress.Parse(ipAddress), port);
+            ipEndPoint = new(IPAddress.Parse(ipAddress), port);
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // Clear log file
+            File.WriteAllText("server-received-log.txt", string.Empty);
         }
 
         public void Start()
         {
             socket.Bind(ipEndPoint);
 
-            Console.WriteLine($"Listening for gateway at port: {ipEndPoint.Port}");
+            Console.WriteLine($"Listening for gateway at port {ipEndPoint.Port}.");
 
             Thread thread = new(ThreadListen!);
             thread.Start(socket);
@@ -50,7 +53,7 @@ namespace RemoteSensingApp.Gateway
                             Console.WriteLine($"Received: {response}");
 
                             // Store the data
-                            // StoreData(response);
+                            StoreData(response);
                         }
 
                         // Wait for a second
@@ -65,15 +68,19 @@ namespace RemoteSensingApp.Gateway
             }
         }
 
-        public void StoreData(string data)
+        public async void StoreData(string data)
         {
+            DateTime now = DateTime.Now;
             try
             {
-                throw new NotImplementedException();
+                // Log the sent data
+                if (data.Contains("TEMP"))
+                    await File.AppendAllTextAsync("server-received-temp-log.txt", $"{now} | {data}" + Environment.NewLine);
+                else // Contains "HUM"
+                    await File.AppendAllTextAsync("server-received-hum-log.txt", $"{now} | {data}" + Environment.NewLine);
             }
             catch (Exception ex)
             {
-                DateTime now = DateTime.Now;
                 Console.WriteLine($"{ex.Message} | {now}");
             }
         }

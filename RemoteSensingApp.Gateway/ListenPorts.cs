@@ -83,6 +83,11 @@ namespace RemoteSensingApp.Gateway
                         // Print sensor alarm
                         if (checkTempSensor >= 3)
                         {
+                            string tempSensorOffMsg = $"{now} | TEMP SENSOR OFF";
+                            Console.WriteLine(tempSensorOffMsg);
+
+                            // Log the sensor alarm
+                            File.AppendAllText("gateway-received-log.txt", tempSensorOffMsg + Environment.NewLine);
                             Console.WriteLine($"{now} | TEMP SENSOR OFF");
                             break; // Leave while loop to reconnect
                         }
@@ -120,10 +125,6 @@ namespace RemoteSensingApp.Gateway
                         int received = await listener.ReceiveAsync(buffer, SocketFlags.None);
                         var response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                        // Humidity ALIVE message arrived
-                        if (response.Contains("ALIVE") && received > 0)
-                            checkHumSensor = 0;
-
                         // Print data
                         if (!string.IsNullOrEmpty(response) && received > 0)
                         {
@@ -132,14 +133,23 @@ namespace RemoteSensingApp.Gateway
                             // Log the received data
                             File.AppendAllText("gateway-received-log.txt", response + Environment.NewLine);
 
-                            // Send data to the server
-                            SendReceivedData(response);
+                            // Send data if not alive message
+                            if (response.Contains("ALIVE"))
+                                checkHumSensor = 0;
+                            else
+                                SendReceivedData(response);
                         }
                     }
 
                     // Print sensor alarm
                     if (checkHumSensor == 7)
-                        Console.WriteLine($"{now} | HUMIDITY SENSOR OFF");
+                    {
+                        string humSensorOffMsg = $"{now} | HUMIDITY SENSOR OFF";
+                        Console.WriteLine(humSensorOffMsg);
+
+                        // Log the sensor alarm
+                        File.AppendAllText("gateway-received-log.txt", humSensorOffMsg + Environment.NewLine);
+                    }
 
                     // Wait for a second
                     Thread.Sleep(1000);
