@@ -15,7 +15,7 @@ dotnet restore
 ```
 
 ```
-dotnet run --project RemoteSensingApp.HttpServer
+dotnet run --project RemoteSensingApp.Server
 ```
 ```
 dotnet run --project RemoteSensingApp.Gateway
