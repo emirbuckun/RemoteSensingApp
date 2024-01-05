@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoteSensingApp.Gateway", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoteSensingApp.SensorHum", "RemoteSensingApp.SensorHum\RemoteSensingApp.SensorHum.csproj", "{BB8B9C74-9327-4CDA-BC03-697F82873710}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoteSensingApp.HttpServer", "RemoteSensingApp.HttpServer\RemoteSensingApp.HttpServer.csproj", "{F0524335-AC25-4620-BF49-660360F5C754}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoteSensingApp.Server", "RemoteSensingApp.Server\RemoteSensingApp.Server.csproj", "{F0524335-AC25-4620-BF49-660360F5C754}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
