@@ -67,7 +67,8 @@ namespace RemoteSensingApp.Gateway
             }
             catch (SocketException ex)
             {
-                Console.WriteLine(ex.Message);
+                DateTime now = DateTime.Now;
+                Console.WriteLine($"{ex.Message} | {now}");
             }
         }
 
@@ -79,7 +80,8 @@ namespace RemoteSensingApp.Gateway
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                DateTime now = DateTime.Now;
+                Console.WriteLine($"{ex.Message} | {now}");
             }
         }
     }

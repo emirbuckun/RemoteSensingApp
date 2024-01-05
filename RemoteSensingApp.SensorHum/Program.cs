@@ -69,6 +69,7 @@ try
 }
 catch (SocketException ex)
 {
-    Console.WriteLine("\n\tThere is a problem with the gateway connection." +
-                    $"\n\tPlease try again. Error details: {ex.Message}.\n");
+    DateTime now = DateTime.Now;
+    Console.WriteLine("\nThere is a problem with the gateway connection." +
+                    $"\nPlease try again. Error details: {ex.Message} | {now}.\n");
 }
