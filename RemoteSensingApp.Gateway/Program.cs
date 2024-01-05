@@ -2,9 +2,15 @@
 using RemoteSensingApp.Gateway;
 
 // Arrange sensor endpoints ("127.0.0.1" = localhost)
-IPEndPoint ipEndPointTemp = new(IPAddress.Parse("127.0.0.1"), 8081); // Temperature sensor
-IPEndPoint ipEndPointHum = new(IPAddress.Parse("127.0.0.1"), 8082); // Humidity sensor
+string localhost = "127.0.0.1";
+int tempPort = 8081;
+int humPort = 8082;
+
+IPEndPoint ipEndPointTemp = new(IPAddress.Parse(localhost), tempPort); // Temperature sensor
+IPEndPoint ipEndPointHum = new(IPAddress.Parse(localhost), humPort); // Humidity sensor
 ListenPorts lp = new(ipEndPointTemp, ipEndPointHum);
 
-Console.WriteLine("\nStarts Listening\n");
+// Start listening sensors
+Console.WriteLine($"Listening for temperature sensor at port {tempPort}\n" +
+                    $"Listening for humidity sensor at port {humPort}\n");
 lp.Start();

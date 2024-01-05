@@ -76,7 +76,7 @@ namespace RemoteSensingApp.Gateway
                                 await File.AppendAllTextAsync("gateway-received-log.txt", response + Environment.NewLine);
 
                                 // Send data to the server
-                                // SendReceivedData(response);
+                                SendReceivedData(response);
                             }
                         }
 
@@ -133,7 +133,7 @@ namespace RemoteSensingApp.Gateway
                             File.AppendAllText("gateway-received-log.txt", response + Environment.NewLine);
 
                             // Send data to the server
-                            // SendReceivedData(response);
+                            SendReceivedData(response);
                         }
                     }
 
@@ -179,7 +179,7 @@ namespace RemoteSensingApp.Gateway
                 File.AppendAllText("gateway-sent-log.txt", message + Environment.NewLine);
 
                 // Wait for a second
-                Thread.Sleep(1000);
+                Thread.Sleep(500);
             }
             catch (Exception ex)
             {

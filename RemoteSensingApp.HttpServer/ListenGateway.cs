@@ -19,8 +19,7 @@ namespace RemoteSensingApp.Gateway
         {
             socket.Bind(ipEndPoint);
 
-            Console.WriteLine("Server: The server is listening for gateway at port: " + ipEndPoint.Port
-                + " over " + socket.ProtocolType.ToString().ToUpper());
+            Console.WriteLine($"Listening for gateway at port: {ipEndPoint.Port}");
 
             Thread thread = new(ThreadListen!);
             thread.Start(socket);
@@ -35,33 +34,27 @@ namespace RemoteSensingApp.Gateway
 
                 while (true)
                 {
-                    Console.WriteLine("Server: Listening for the gateway...");
                     listener.Listen(100);
-
                     var handler = listener.Accept();
-                    Console.WriteLine("Server: Connection accepted for the gateway");
 
-                    while (true)
+                    DateTime dateTimeNow = DateTime.Now;
+                    if (handler.Available > 0)
                     {
-                        DateTime dateTimeNow = DateTime.Now;
-                        if (handler.Available > 0)
+                        // Receive message over TCP
+                        int received = await handler.ReceiveAsync(buffer, SocketFlags.None);
+                        var response = Encoding.UTF8.GetString(buffer, 0, received);
+
+                        // Print received data
+                        if (!string.IsNullOrEmpty(response) && received > 0)
                         {
-                            // Receive message over TCP
-                            int received = await handler.ReceiveAsync(buffer, SocketFlags.None);
-                            var response = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
+                            Console.WriteLine($"Received: {response}");
 
-                            // Print received data
-                            if (!string.IsNullOrEmpty(response) && received > 0)
-                            {
-                                Console.WriteLine("Server: " + response);
-
-                                // Send data to the server
-                                // StoreData(response);
-                            }
+                            // Store the data
+                            // StoreData(response);
                         }
 
                         // Wait for a second
-                        Thread.Sleep(1000);
+                        Thread.Sleep(100);
                     }
                 }
             }
