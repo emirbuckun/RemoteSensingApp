@@ -9,4 +9,4 @@ IPEndPoint[] ipPoints = new IPEndPoint[2] { ipEndPointTemp, ipEndPointHum };
 ListenPorts lp = new(ipPoints);
 
 Console.WriteLine("Gateway: Starts Listening");
-lp.BeginListen();
+lp.Start();

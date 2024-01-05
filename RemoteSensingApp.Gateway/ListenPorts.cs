@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Net.WebSockets;
 using System.Text;
 
 namespace RemoteSensingApp.Gateway
@@ -18,7 +19,7 @@ namespace RemoteSensingApp.Gateway
             sockets[1] = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         }
 
-        public void BeginListen()
+        public void Start()
         {
             for (int i = 0; i < ipEndPoints.Length; i++)
             {
@@ -43,12 +44,14 @@ namespace RemoteSensingApp.Gateway
                 {
                     while (true)
                     {
-                        int checkTempSensor = 0;
+                        Console.WriteLine("Gateway: Listening for temperature sensor TCP connection.");
                         listener.Listen(100);
+
                         var handler = listener.Accept();
                         Console.WriteLine("Gateway: Connection accepted for temperature sensor from "
                             + handler.RemoteEndPoint);
 
+                        int checkTempSensor = 0;
                         while (true)
                         {
                             DateTime dateTimeNow = DateTime.Now;
@@ -58,11 +61,14 @@ namespace RemoteSensingApp.Gateway
                                 int received = handler.Receive(buffer, SocketFlags.None);
                                 var response = Encoding.UTF8.GetString(buffer, 0, buffer.Length);
 
-                                // Print data
+                                // Print received data
                                 if (!string.IsNullOrEmpty(response) && received > 0)
                                 {
                                     Console.WriteLine("Gateway: " + response);
                                     checkTempSensor = 0;
+
+                                    // Send data to the server
+                                    SendReceivedData(response);
                                 }
                             }
 
@@ -99,7 +105,12 @@ namespace RemoteSensingApp.Gateway
 
                             // Print data
                             if (!string.IsNullOrEmpty(response) && received > 0)
+                            {
                                 Console.WriteLine("Gateway: " + response);
+
+                                // Send data to the server
+                                SendReceivedData(response);
+                            }
                         }
 
                         // Print sensor alarm
@@ -115,6 +126,35 @@ namespace RemoteSensingApp.Gateway
                 }
             }
             catch (SocketException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+        }
+
+        public void SendReceivedData(string data)
+        {
+            try
+            {
+                // Connect to the server web socket
+                IPEndPoint ipEndPoint = new(IPAddress.Parse("127.0.0.1"), 8083);
+                using Socket client = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                client.Connect(ipEndPoint);
+
+                // Prepare message
+                var message = data;
+                var messageBytes = Encoding.UTF8.GetBytes(message);
+                DateTime now = DateTime.Now;
+
+                // Send message
+                client.Send(messageBytes, SocketFlags.None);
+
+                // Print sent data
+                Console.WriteLine("Gateway Sent Data: " + message);
+
+                // Wait for a second
+                Thread.Sleep(1000);
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
             }
